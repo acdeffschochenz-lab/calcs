@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>保本卖出价计算器 · 平安证券费率</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: #f2f4f8; color: #1a1d23; min-height: 100vh;
+    display: flex; justify-content: center; padding: 20px 14px 40px;
+  }
+  .app { width: 100%; max-width: 480px; }
+  h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .sub { font-size: 12px; color: #7a8190; margin-bottom: 18px; line-height: 1.5; }
+  .card {
+    background: #fff; border-radius: 16px; padding: 20px 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.03);
+    margin-bottom: 14px;
+  }
+  .type-switch { display: flex; background: #eef0f4; border-radius: 12px; padding: 3px; margin-bottom: 18px; }
+  .type-switch button {
+    flex: 1; border: none; background: transparent; padding: 10px 0;
+    font-size: 14px; font-weight: 600; color: #7a8190; border-radius: 10px;
+    cursor: pointer; transition: all .18s ease;
+  }
+  .type-switch button.active { background: #fff; color: #1a1d23; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  label { display: block; font-size: 12px; font-weight: 600; color: #5b6270; margin-bottom: 6px; }
+  input {
+    width: 100%; padding: 13px 14px; font-size: 16px; border: 1.5px solid #e2e5ea;
+    border-radius: 12px; outline: none; background: #fafbfc; color: #1a1d23;
+    transition: border-color .18s, box-shadow .18s;
+  }
+  input:focus { border-color: #3b6ef6; box-shadow: 0 0 0 3px rgba(59,110,246,.1); background: #fff; }
+  input::placeholder { color: #b0b6c0; }
+  .calc-btn {
+    width: 100%; padding: 15px; font-size: 16px; font-weight: 700;
+    background: #1a1d23; color: #fff; border: none; border-radius: 12px;
+    cursor: pointer; margin-top: 6px;
+  }
+  .calc-btn:active { opacity: .8; }
+  .result { margin-top: 18px; display: none; }
+  .result.show { display: block; animation: fadeUp .25s ease; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .result-hero {
+    background: linear-gradient(135deg, #1a1d23 0%, #2d3340 100%);
+    border-radius: 14px; padding: 22px 18px; text-align: center; margin-bottom: 10px; color: #fff;
+  }
+  .result-hero .label { font-size: 12px; opacity: .7; letter-spacing: .5px; margin-bottom: 6px; }
+  .result-hero .price { font-size: 38px; font-weight: 800; letter-spacing: -1px; line-height: 1.1; }
+  .result-hero .price small { font-size: 16px; font-weight: 500; opacity: .6; margin-left: 2px; }
+  .result-hero .note { font-size: 11px; opacity: .55; margin-top: 8px; line-height: 1.5; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .detail-item { background: #f7f8fa; border-radius: 10px; padding: 12px; text-align: center; }
+  .detail-item .dl { font-size: 11px; color: #7a8190; margin-bottom: 4px; }
+  .detail-item .dv { font-size: 16px; font-weight: 700; color: #1a1d23; }
+  .detail-item .dv.green { color: #16a34a; }
+  .detail-item .dv.red { color: #dc2626; }
+  .fee-table { margin-top: 12px; }
+  .fee-table .row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 13px; border-bottom: 1px solid #f0f2f5; }
+  .fee-table .row:last-child { border-bottom: none; }
+  .fee-table .row .k { color: #7a8190; }
+  .fee-table .row .v { font-weight: 600; color: #1a1d23; }
+  .history-title { font-size: 13px; font-weight: 700; color: #5b6270; margin: 22px 0 10px; display: flex; justify-content: space-between; align-items: center; }
+  .history-title .clear { font-size: 11px; color: #b0b6c0; cursor: pointer; font-weight: 500; background: none; border: none; }
+  .history-item {
+    background: #fff; border-radius: 12px; padding: 13px 15px; margin-bottom: 8px;
+    display: flex; justify-content: space-between; align-items: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,.03);
+  }
+  .history-item .name { font-size: 14px; font-weight: 700; }
+  .history-item .meta { font-size: 11px; color: #8a919e; margin-top: 3px; }
+  .history-item .hi-right { text-align: right; }
+  .history-item .be { font-size: 15px; font-weight: 800; color: #3b6ef6; }
+  .history-item .pnl { font-size: 11px; margin-top: 2px; }
+  .green { color: #16a34a; }
+  .red { color: #dc2626; }
+  .empty { text-align: center; color: #b0b6c0; font-size: 13px; padding: 24px 0; }
+  .footer-note { font-size: 11px; color: #b0b6c0; text-align: center; line-height: 1.7; margin-top: 24px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>保本卖出价计算器</h1>
+  <p class="sub">平安证券费率估算 · 卖出价向上取整至 0.001 元</p>
+
+  <div class="card">
+    <div class="type-switch" id="typeSwitch">
+      <button data-type="stock">A 股股票</button>
+      <button data-type="etf">ETF / 场内基金</button>
+    </div>
+
+    <div class="field">
+      <label>股票 / ETF 名称</label>
+      <input type="text" id="stockName" placeholder="例如：贵州茅台 / 沪深300ETF" maxlength="30">
+    </div>
+    <div class="field">
+      <label>买入价格（元）</label>
+      <input type="number" id="buyPrice" placeholder="例如：10.500" step="0.001" min="0.001">
+    </div>
+    <div class="field">
+      <label>买入数量（股 / 份）</label>
+      <input type="number" id="shares" placeholder="例如：1000" step="1" min="1">
+    </div>
+    <button class="calc-btn" id="calcBtn">计算保本卖出价</button>
+  </div>
+
+  <div class="result" id="result">
+    <div class="result-hero">
+      <div class="label">保本卖出价（向上取整）</div>
+      <div class="price" id="breakEvenPrice">--<small>元</small></div>
+      <div class="note" id="heroNote">按平安证券费率估算，实际以交割单为准</div>
+    </div>
+    <div class="card" style="padding:16px;">
+      <div class="detail-grid">
+        <div class="detail-item">
+          <div class="dl">买入总成本</div>
+          <div class="dv" id="totalCost">--</div>
+        </div>
+        <div class="detail-item">
+          <div class="dl">保本卖出预估盈利</div>
+          <div class="dv green" id="profitAmt">--</div>
+        </div>
+        <div class="detail-item">
+          <div class="dl">买入手续费合计</div>
+          <div class="dv" id="buyFeeTotal">--</div>
+        </div>
+        <div class="detail-item">
+          <div class="dl">卖出手续费合计</div>
+          <div class="dv" id="sellFeeTotal">--</div>
+        </div>
+      </div>
+      <div class="fee-table" id="feeTable"></div>
+    </div>
+  </div>
+
+  <div class="history-title">
+    <span>📋 历史记录</span>
+    <button class="clear" id="clearHistory">清空</button>
+  </div>
+  <div id="historyList"><div class="empty">还没有记录，计算后自动保存</div></div>
+
+  <p class="footer-note">
+    费率依据：平安证券默认佣金约万2.5（单笔最低5元）；<br>
+    A股卖出印花税万5，过户费双向万0.1；ETF免印花税与过户费。<br>
+    结果仅供参考，实际费用以平安证券交割单为准。
+  </p>
+</div>
+
+<script>
+(function () {
+  const STORAGE_KEY = 'breakeven_history_v1';
+  let currentType = null; // 'stock' | 'etf'
+
+  const $ = (s) => document.querySelector(s);
+
+  const RATE = {
+    commission: 0.00025,   // 佣金万2.5
+    commissionMin: 5,      // 单笔最低5元
+    stampSell: 0.0005,     // A股卖出印花税万5
+    transferFee: 0.00001   // 过户费万0.1，双向（A股）
+  };
+
+  function formatMoney(n) {
+    return '¥' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  function ceilTo3(n) {
+    // 向上取整到三位小数，减极小值避免浮点误差导致多进0.001
+    return Math.ceil((n - 1e-9) * 1000) / 1000;
+  }
+
+  function calcCommission(amount) {
+    return Math.max(amount * RATE.commission, RATE.commissionMin);
+  }
+
+  function computeBreakEven(type, buyPrice, shares) {
+    const isStock = type === 'stock';
+    const buyAmount = buyPrice * shares;
+
+    // 买入费用
+    const buyCommission = calcCommission(buyAmount);
+    const buyTransfer = isStock ? buyAmount * RATE.transferFee : 0;
+    const buyFee = buyCommission + buyTransfer;
+    const totalCost = buyAmount + buyFee;
+
+    // 求理论保本卖出价
+    let pProportional, pMinCommission;
+    if (isStock) {
+      pProportional = totalCost / (shares * (1 - RATE.commission - RATE.stampSell - RATE.transferFee));
+      pMinCommission = (totalCost + RATE.commissionMin) / (shares * (1 - RATE.stampSell - RATE.transferFee));
+    } else {
+      pProportional = totalCost / (shares * (1 - RATE.commission));
+      pMinCommission = (totalCost + RATE.commissionMin) / shares;
+    }
+
+    // 判断卖出佣金是否触发最低5元
+    let rawBreakEven;
+    if (pProportional * shares * RATE.commission >= RATE.commissionMin) {
+      rawBreakEven = pProportional;
+    } else {
+      rawBreakEven = pMinCommission;
+    }
+
+    const breakEvenPrice = ceilTo3(rawBreakEven);
+
+    // 用取整后的价格反算卖出费用
+    const sellAmount = breakEvenPrice * shares;
+    const sellCommission = calcCommission(sellAmount);
+    const sellStamp = isStock ? sellAmount * RATE.stampSell : 0;
+    const sellTransfer = isStock ? sellAmount * RATE.transferFee : 0;
+    const sellFee = sellCommission + sellStamp + sellTransfer;
+    const netReceived = sellAmount - sellFee;
+    const profit = netReceived - totalCost;
+
+    return {
+      type, buyPrice, shares,
+      buyAmount, buyCommission, buyTransfer, buyFee, totalCost,
+      breakEvenPrice,
+      sellAmount, sellCommission, sellStamp, sellTransfer, sellFee,
+      netReceived, profit
+    };
+  }
+
+  function row(k, v) {
+    return `<div class="row"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+  }
+
+  function renderResult(r) {
+    $('#result').classList.add('show');
+    $('#breakEvenPrice').innerHTML = r.breakEvenPrice.toFixed(3) + '<small>元</small>';
+    $('#totalCost').textContent = formatMoney(r.totalCost);
+    $('#profitAmt').textContent = (r.profit >= 0 ? '+' : '') + formatMoney(r.profit);
+    $('#profitAmt').className = 'dv ' + (r.profit >= 0 ? 'green' : 'red');
+    $('#buyFeeTotal').textContent = formatMoney(r.buyFee);
+    $('#sellFeeTotal').textContent = formatMoney(r.sellFee);
+
+    let html = '';
+    html += row('买入佣金', formatMoney(r.buyCommission));
+    if (r.type === 'stock') html += row('买入过户费', formatMoney(r.buyTransfer));
+    html += row('卖出佣金', formatMoney(r.sellCommission));
+    if (r.type === 'stock') {
+      html += row('卖出印花税（万5）', formatMoney(r.sellStamp));
+      html += row('卖出过户费', formatMoney(r.sellTransfer));
+    } else {
+      html += row('印花税 / 过户费', 'ETF 免收');
+    }
+    html += row('卖出净收入', formatMoney(r.netReceived));
+    $('#feeTable').innerHTML = html;
+
+    $('#heroNote').textContent = r.type === 'stock'
+      ? 'A股费率：佣金万2.5(最低5元) + 印花税万5 + 过户费万0.1'
+      : 'ETF费率：仅佣金万2.5(最低5元)，免印花税与过户费';
+  }
+
+  function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function loadHistory() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+    catch (e) { return []; }
+  }
+
+  function saveHistory(list) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  }
+
+  function addHistory(record) {
+    const list = loadHistory();
+    list.unshift(record);
+    if (list.length > 30) list.length = 30;
+    saveHistory(list);
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const list = loadHistory();
+    const box = $('#historyList');
+    if (!list.length) {
+      box.innerHTML = '<div class="empty">还没有记录，计算后自动保存</div>';
+      return;
+    }
+    box.innerHTML = list.map(item => {
+      const typeLabel = item.type === 'etf' ? 'ETF' : 'A股';
+      const pnl = item.profit >= 0
+        ? '+' + item.profit.toFixed(2)
+        : item.profit.toFixed(2);
+      const pnlCls = item.profit >= 0 ? 'green' : 'red';
+      return `<div class="history-item">
+        <div>
+          <div class="name">${escapeHtml(item.name)}
+            <span style="font-weight:400;color:#8a919e;font-size:11px;">${typeLabel}</span>
+          </div>
+          <div class="meta">买入 ${item.buyPrice.toFixed(3)} × ${item.shares} 股</div>
+        </div>
+        <div class="hi-right">
+          <div class="be">${item.breakEvenPrice.toFixed(3)}</div>
+          <div class="pnl ${pnlCls}">保本预估 ${pnl}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // 选择 A股 / ETF
+  $('#typeSwitch').addEventListener('click', function (e) {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    this.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentType = btn.dataset.type;
+  });
+
+  // 计算
+  $('#calcBtn').addEventListener('click', function () {
+    if (!currentType) {
+      alert('请先选择：A股股票 或 ETF / 场内基金');
+      return;
+    }
+
+    const name = $('#stockName').value.trim();
+    const buyPrice = parseFloat($('#buyPrice').value);
+    const shares = parseInt($('#shares').value, 10);
+
+    if (!name) {
+      alert('请输入股票 / ETF 名称');
+      $('#stockName').focus();
+      return;
+    }
+    if (!buyPrice || buyPrice <= 0) {
+      alert('请输入有效的买入价格');
+      $('#buyPrice').focus();
+      return;
+    }
+    if (!shares || shares <= 0 || !Number.isInteger(shares)) {
+      alert('请输入有效的买入数量（整数）');
+      $('#shares').focus();
+      return;
+    }
+
+    const r = computeBreakEven(currentType, buyPrice, shares);
+    renderResult(r);
+
+    addHistory({
+      name,
+      type: currentType,
+      buyPrice,
+      shares,
+      breakEvenPrice: r.breakEvenPrice,
+      profit: r.profit,
+      ts: Date.now()
+    });
+  });
+
+  // 清空历史
+  $('#clearHistory').addEventListener('click', function () {
+    if (confirm('确定清空全部历史记录？')) {
+      localStorage.removeItem(STORAGE_KEY);
+      renderHistory();
+    }
+  });
+
+  renderHistory();
+})();
+</script>
+</body>
+</html>
